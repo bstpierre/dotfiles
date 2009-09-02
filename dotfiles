@@ -1,0 +1,148 @@
+#!/usr/bin/python
+
+'''dotfiles keeps your ~/.* synchronized across machines.
+Usage:
+
+dotfiles init REPO
+
+  Initializes dotfiles using REPO. REPO is where the master copy of
+  your dotfiles will be stored.
+
+dotfiles install REPO
+
+  Installs dotfiles from REPO into your ~ on this
+  machine. Creates ~/.dotfiles/ if it does not exist; complains and
+  exits with error if a ~/.dotfiles does exist.
+
+  Pulls files from REPO into ~/.dotfiles/...
+
+  FIXME: Needs to deal with existing files in a sane way.
+
+dotfiles add DOTFILE
+
+  If DOTFILE is not under ~, complain and exit with error.
+
+  *Move* DOTFILE into ~/.dotfiles and create a symlink from the
+  original file to the ~/.dotfiles version. If DOTFILE is in a
+  subdir, the subdirs will be created under ~/.dotfiles. Adds
+  DOTFILE to the REPO (locally: it does not do the push/checkin).
+
+dotfiles push
+
+  Sends local changes to REPO. Similar semantics to git push, svn ci
+  -- e.g. behavior if local is out of date w.r.t REPO.
+
+dotfiles pull
+
+  Fetches updates from REPO. Similar semantics to git pull, svn up
+  -- e.g. behavior when merge required.
+
+  When new files appear, it creates links from ~/... to
+  ~/.dotfiles/...
+
+  FIXME: Deal with existing files of the same name in a sane
+  way. (See above, same problem.)
+'''
+
+__version__ = "0.1"
+__date__ = "2009-09-02"
+__author__ = "Brian St. Pierre (http://bstpierre.org/)"
+__copyright__ = "Copyright 2009, Brian St. Pierre"
+__license__ = "MIT"
+
+
+import optparse
+import os
+import subprocess
+import sys
+
+# This is where we store our control info.
+_DOTFILES_DIR = os.path.join(os.environ.get('HOME', ''),
+                             '.dotfiles')
+
+
+def dotfiles_init(*args):
+    print args
+    if len(args) != 1:
+        print __doc__
+        return 1
+
+    repo = args[0]
+
+    if not os.path.exists(repo):
+        os.makedirs(repo)
+
+    retcode = subprocess.call('git init', cwd=repo, shell=True)
+    if retcode == 0:
+        retcode = subprocess.call('git commit --allow-empty '+
+                                  '-m"New dotfiles repository"',
+                                  cwd=repo,
+                                  shell=True)
+
+    return retcode
+
+
+def dotfiles_install(*args):
+    if len(args) != 1:
+        print __doc__
+        return 1
+
+    repo = args[0]
+
+    if os.path.exists(_DOTFILES_DIR):
+        print 'error: dotfiles control dir "%s" exists already' % (
+            _DOTFILES_DIR)
+        return 1
+
+    os.makedirs(_DOTFILES_DIR)
+    local_repo_dir = os.path.join(_DOTFILES_DIR, 'repo')
+    retcode = subprocess.call('git clone %s %s' % (
+                                  repo, local_repo_dir),
+                              shell=True)
+
+    dirs = ['']
+    while len(dirs):
+        dir = dirs.pop()
+        for f in os.listdir(os.path.join(local_repo_dir, dir)):
+            if f == '.git':
+                continue
+            path = os.path.join(local_repo_dir, dir, f)
+            if os.path.isdir(path):
+                dirs.append(os.path.join(dir, f))
+                continue
+            if os.path.isfile(path):
+                linkdir = os.path.join(os.environ.get('HOME', ''),
+                                       dir)
+                if not os.path.isdir(linkdir):
+                    os.makedirs(linkdir)
+                link = os.path.join(linkdir, f)
+                if os.path.exists(link):
+                    print 'WARNING: %s exists, skipping' % link
+                    continue
+                os.symlink(path, link)
+
+    return retcode
+
+
+def main():
+    parser = optparse.OptionParser(usage=__doc__)
+
+    options, remaining = parser.parse_args(sys.argv)
+
+    if len(remaining) < 2:
+        parser.print_usage()
+        sys.exit(1)
+
+    mode = remaining[1]
+    handler = globals().get('dotfiles_' + mode, None)
+    if handler:
+        status = handler(*remaining[2:])
+    else:
+        print 'dotfiles: unknown mode "%s"' % mode
+        status = 1
+
+    sys.exit(status)
+        
+
+if __name__ == '__main__':
+    main()
