@@ -27,6 +27,12 @@ dotfiles add DOTFILE
   subdir, the subdirs will be created under ~/.dotfiles. Adds
   DOTFILE to the REPO (locally: it does not do the push/checkin).
 
+  If DOTFILE is a directory, everything under the directory will be
+  placed under dotfiles control. The directory itself will become a
+  symlink into the REPO. If you do not want to control the entire
+  directory, pick and choose the files you want to control. Mixing and
+  matching is probably a bad idea.
+
 dotfiles push COMMIT-MSG
 
   Sends local changes to REPO. Similar semantics to git push, svn ci
@@ -64,6 +70,27 @@ _DOTFILES_DIR = os.path.join(os.environ.get('HOME', ''),
 _LOCAL_REPO_DIR = os.path.join(_DOTFILES_DIR, 'repo')
 
 
+def _maybe_warn(link):
+    '''Print a warning about the fact that link exists.
+
+    Unless it is in a parent directory that is linked into the
+    repo.'''
+
+    home = os.environ.get('HOME', None)
+    if not home:
+        return
+
+    dir = os.path.dirname(link)
+    while dir not in ['/', home]:
+        if os.path.islink(dir):
+            target = os.readlink(dir)
+            if _LOCAL_REPO_DIR in target:
+                # A parent dir is pointing into the repo, don't warn.
+                return
+        dir = os.path.dirname(dir)
+    print 'WARNING: %s exists, skipping' % link
+
+
 def _make_links_to_repo(warn_on_existing_links=False):
     dirs = ['']
     while len(dirs):
@@ -82,18 +109,18 @@ def _make_links_to_repo(warn_on_existing_links=False):
                     os.makedirs(linkdir)
                 link = os.path.join(linkdir, f)
                 if os.path.exists(link):
-                    # If warn_on_existing_links is set, we always
-                    # warn (and skip the file).
+                    # If warn_on_existing_links is set, we warn (and
+                    # skip the file).
                     #
-                    # If the file is not a symlink, we always warn
-                    # (and skip the file).
+                    # If the file is not a symlink, we warn (and skip
+                    # the file).
                     #
                     # Otherwise the file is a symlink and we can just
                     # ignore it -- assume dotfiles already controls
                     # it.
                     if (not os.path.islink(link) or
                         warn_on_existing_links):
-                        print 'WARNING: %s exists, skipping' % link
+                        _maybe_warn(link)
                     continue
                 os.symlink(path, link)
 
@@ -159,15 +186,20 @@ def dotfiles_add(*args):
 
     for file in args:
         if file.find(home) != 0:
-            print 'WARNING: %s is not under $HOME (%s), skipping' % (
-                file, home)
-            continue
-        if not os.path.isfile(file):
-            print 'WARNING: dir/link not yet handled, skipping %s' % (
-                file, )
-            continue
-        filename = os.path.basename(file)
+            # Maybe the name is relative to $HOME?
+            if not os.path.isfile(os.path.join(home, file)):
+                print 'WARNING: %s is not under $HOME (%s), skipping' % (
+                    file, home)
+                continue
+            else:
+                file = os.path.join(home, file)
+                print 'INFO: using %s' % os.path.join(home, file)
+        filename = file.replace(home, '').strip(os.path.sep)
         repofile = os.path.join(_LOCAL_REPO_DIR, filename)
+        repodir = os.path.dirname(repofile)
+        if not os.path.exists(repodir):
+            os.makedirs(repodir)
+        print 'dotfiles_add', filename, repofile, file
         os.rename(file, repofile)
         os.symlink(repofile, file)
         retcode = subprocess.call(

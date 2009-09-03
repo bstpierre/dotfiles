@@ -50,4 +50,31 @@ diff $home1/.exrc $home2/.exrc
 diff $home1/.emacs $home2/.emacs
 diff $home1/.foo $home2/.foo
 
+# Now for subdirs.
+mkdir $home1/.subdir
+mkdir $home1/.subdir/xx
+mkdir $home1/.subdir/yy
+echo hey > $home1/.subdir/xx/hhh
+echo yo > $home1/.subdir/yy/zzz
+dotfiles add $home1/.subdir
+dotfiles push 'Added subdir with a couple of files'
+
+export HOME=$home2
+dotfiles pull
+diff $home1/.exrc $home2/.exrc
+diff $home1/.emacs $home2/.emacs
+diff $home1/.foo $home2/.foo
+diff $home1/.subdir/xx/hhh $home2/.subdir/xx/hhh
+diff $home1/.subdir/yy/zzz $home2/.subdir/yy/zzz
+
+# What about files in a subdir that isn't itself controlled?
+mkdir $home2/.uncontrolled-subdir
+echo zzz > $home2/.uncontrolled-subdir/zzz
+dotfiles add $home2/.uncontrolled-subdir/zzz
+dotfiles push 'Adding untrolled subdir with controlled file.'
+
+export HOME=$home1
+dotfiles pull
+diff $home1/.uncontrolled-subdir/zzz $home2/.uncontrolled-subdir/zzz
+
 exit 0
