@@ -60,9 +60,11 @@ import sys
 _DOTFILES_DIR = os.path.join(os.environ.get('HOME', ''),
                              '.dotfiles')
 
+# This is where copies of the dotfiles live (e.g. .emacs).
+_LOCAL_REPO_DIR = os.path.join(_DOTFILES_DIR, 'repo')
+
 
 def dotfiles_init(*args):
-    print args
     if len(args) != 1:
         print __doc__
         return 1
@@ -83,6 +85,13 @@ def dotfiles_init(*args):
 
 
 def dotfiles_install(*args):
+    '''Installs dotfiles from REPO into your ~ on this
+    machine. Creates ~/.dotfiles/ if it does not exist; complains and
+    exits with error if a ~/.dotfiles does exist.
+
+    Pulls files from REPO into ~/.dotfiles/...
+    '''
+
     if len(args) != 1:
         print __doc__
         return 1
@@ -95,18 +104,17 @@ def dotfiles_install(*args):
         return 1
 
     os.makedirs(_DOTFILES_DIR)
-    local_repo_dir = os.path.join(_DOTFILES_DIR, 'repo')
     retcode = subprocess.call('git clone %s %s' % (
-                                  repo, local_repo_dir),
+                                  repo, _LOCAL_REPO_DIR),
                               shell=True)
 
     dirs = ['']
     while len(dirs):
         dir = dirs.pop()
-        for f in os.listdir(os.path.join(local_repo_dir, dir)):
+        for f in os.listdir(os.path.join(_LOCAL_REPO_DIR, dir)):
             if f == '.git':
                 continue
-            path = os.path.join(local_repo_dir, dir, f)
+            path = os.path.join(_LOCAL_REPO_DIR, dir, f)
             if os.path.isdir(path):
                 dirs.append(os.path.join(dir, f))
                 continue
@@ -122,6 +130,60 @@ def dotfiles_install(*args):
                 os.symlink(path, link)
 
     return retcode
+
+
+def dotfiles_add(*args):
+    if len(args) < 1:
+        print __doc__
+        return 1
+
+    home = os.environ.get('HOME', None)
+    if not home:
+        print 'error: $HOME is not set, exiting'
+        return 1
+
+    for file in args:
+        if file.find(home) != 0:
+            print 'WARNING: %s is not under $HOME (%s), skipping' % (
+                file, home)
+            continue
+        if not os.path.isfile(file):
+            print 'WARNING: dir/link not yet handled, skipping %s' % (
+                file, )
+            continue
+        filename = os.path.basename(file)
+        repofile = os.path.join(_LOCAL_REPO_DIR, filename)
+        os.rename(file, repofile)
+        os.symlink(repofile, file)
+        retcode = subprocess.call(
+            'git add ' + filename,
+            cwd=_LOCAL_REPO_DIR,
+            shell=True)
+        if retcode != 0:
+            print 'error: git add failed adding %s, ' % filename + \
+                  'your dotfiles are probably in an inconsistent state'
+            return retcode
+
+        msg = "Placed \'%s\' under dotfiles control" % filename
+        retcode = subprocess.call(
+            'git commit -m"%s" %s' % (msg, filename),
+            cwd=_LOCAL_REPO_DIR,
+            shell=True)
+        if retcode != 0:
+            print 'error: git commit failed on %s, ' % filename + \
+                  'your dotfiles are probably in an inconsistent state'
+            return retcode
+
+        retcode = subprocess.call(
+            'git push',
+            cwd=_LOCAL_REPO_DIR,
+            shell=True)
+        if retcode != 0:
+            print 'error: git push failed on %s, ' % filename + \
+                  'your dotfiles are probably in an inconsistent state'
+            return retcode
+
+        return retcode
 
 
 def main():
@@ -142,7 +204,7 @@ def main():
         status = 1
 
     sys.exit(status)
-        
+
 
 if __name__ == '__main__':
     main()
