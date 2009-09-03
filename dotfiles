@@ -27,7 +27,7 @@ dotfiles add DOTFILE
   subdir, the subdirs will be created under ~/.dotfiles. Adds
   DOTFILE to the REPO (locally: it does not do the push/checkin).
 
-dotfiles push
+dotfiles push COMMIT-MSG
 
   Sends local changes to REPO. Similar semantics to git push, svn ci
   -- e.g. behavior if local is out of date w.r.t REPO.
@@ -62,6 +62,40 @@ _DOTFILES_DIR = os.path.join(os.environ.get('HOME', ''),
 
 # This is where copies of the dotfiles live (e.g. .emacs).
 _LOCAL_REPO_DIR = os.path.join(_DOTFILES_DIR, 'repo')
+
+
+def _make_links_to_repo(warn_on_existing_links=False):
+    dirs = ['']
+    while len(dirs):
+        dir = dirs.pop()
+        for f in os.listdir(os.path.join(_LOCAL_REPO_DIR, dir)):
+            if f == '.git':
+                continue
+            path = os.path.join(_LOCAL_REPO_DIR, dir, f)
+            if os.path.isdir(path):
+                dirs.append(os.path.join(dir, f))
+                continue
+            if os.path.isfile(path):
+                linkdir = os.path.join(os.environ.get('HOME', ''),
+                                       dir)
+                if not os.path.isdir(linkdir):
+                    os.makedirs(linkdir)
+                link = os.path.join(linkdir, f)
+                if os.path.exists(link):
+                    # If warn_on_existing_links is set, we always
+                    # warn (and skip the file).
+                    #
+                    # If the file is not a symlink, we always warn
+                    # (and skip the file).
+                    #
+                    # Otherwise the file is a symlink and we can just
+                    # ignore it -- assume dotfiles already controls
+                    # it.
+                    if (not os.path.islink(link) or
+                        warn_on_existing_links):
+                        print 'WARNING: %s exists, skipping' % link
+                    continue
+                os.symlink(path, link)
 
 
 def dotfiles_init(*args):
@@ -108,26 +142,7 @@ def dotfiles_install(*args):
                                   repo, _LOCAL_REPO_DIR),
                               shell=True)
 
-    dirs = ['']
-    while len(dirs):
-        dir = dirs.pop()
-        for f in os.listdir(os.path.join(_LOCAL_REPO_DIR, dir)):
-            if f == '.git':
-                continue
-            path = os.path.join(_LOCAL_REPO_DIR, dir, f)
-            if os.path.isdir(path):
-                dirs.append(os.path.join(dir, f))
-                continue
-            if os.path.isfile(path):
-                linkdir = os.path.join(os.environ.get('HOME', ''),
-                                       dir)
-                if not os.path.isdir(linkdir):
-                    os.makedirs(linkdir)
-                link = os.path.join(linkdir, f)
-                if os.path.exists(link):
-                    print 'WARNING: %s exists, skipping' % link
-                    continue
-                os.symlink(path, link)
+    _make_links_to_repo(warn_on_existing_links=True)
 
     return retcode
 
@@ -164,26 +179,51 @@ def dotfiles_add(*args):
                   'your dotfiles are probably in an inconsistent state'
             return retcode
 
-        msg = "Placed \'%s\' under dotfiles control" % filename
-        retcode = subprocess.call(
-            'git commit -m"%s" %s' % (msg, filename),
-            cwd=_LOCAL_REPO_DIR,
-            shell=True)
-        if retcode != 0:
-            print 'error: git commit failed on %s, ' % filename + \
-                  'your dotfiles are probably in an inconsistent state'
-            return retcode
 
-        retcode = subprocess.call(
-            'git push',
-            cwd=_LOCAL_REPO_DIR,
-            shell=True)
-        if retcode != 0:
-            print 'error: git push failed on %s, ' % filename + \
-                  'your dotfiles are probably in an inconsistent state'
-            return retcode
+def dotfiles_push(*args):
+    if len(args) != 1:
+        print __doc__
+        return 1
 
+    msg = args[0]
+    retcode = subprocess.call(
+        'git commit -a -m"%s"' % (msg, ),
+        cwd=_LOCAL_REPO_DIR,
+        shell=True)
+    if retcode != 0:
+        print 'error: git commit failed, your dotfiles ' + \
+              'are probably in an inconsistent state'
         return retcode
+
+    retcode = subprocess.call(
+        'git push',
+        cwd=_LOCAL_REPO_DIR,
+        shell=True)
+    if retcode != 0:
+        print 'error: git push failed, your dotfiles ' + \
+              'are probably in an inconsistent state'
+        return retcode
+
+    return retcode
+
+
+def dotfiles_pull(*args):
+    if len(args):
+        print __doc__
+        return 1
+
+    retcode = subprocess.call(
+        'git pull',
+        cwd=_LOCAL_REPO_DIR,
+        shell=True)
+    if retcode != 0:
+        print 'error: git pull failed, your dotfiles ' + \
+              'are probably in an inconsistent state'
+        return retcode
+
+    _make_links_to_repo(warn_on_existing_links=False)
+
+    return retcode
 
 
 def main():
