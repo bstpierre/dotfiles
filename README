@@ -1,0 +1,14 @@
+Dotfiles is a tool to manage config files in your homedir across several
+computers.
+
+See the top of the script ("dotfiles") for documentation.
+
+
+
+BUGS:
+* Does not handle directories (e.g. ~/.emacs-lisp/) quite right.
+
+
+
+TODO:
+* Add support for config variations on different computers.
