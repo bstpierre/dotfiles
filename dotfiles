@@ -187,7 +187,7 @@ def dotfiles_add(*args):
     for file in args:
         if file.find(home) != 0:
             # Maybe the name is relative to $HOME?
-            if not os.path.isfile(os.path.join(home, file)):
+            if not os.path.exists(os.path.join(home, file)):
                 print 'WARNING: %s is not under $HOME (%s), skipping' % (
                     file, home)
                 continue
@@ -199,7 +199,6 @@ def dotfiles_add(*args):
         repodir = os.path.dirname(repofile)
         if not os.path.exists(repodir):
             os.makedirs(repodir)
-        print 'dotfiles_add', filename, repofile, file
         os.rename(file, repofile)
         os.symlink(repofile, file)
         retcode = subprocess.call(
