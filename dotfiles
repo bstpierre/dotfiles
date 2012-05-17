@@ -50,10 +50,10 @@ dotfiles pull
   way. (See above, same problem.)
 '''
 
-__version__ = "0.2"
-__date__ = "2009-09-02"
+__version__ = "0.3"
+__date__ = "2012-05-17"
 __author__ = "Brian St. Pierre (http://bstpierre.org/)"
-__copyright__ = "Copyright 2009, Brian St. Pierre"
+__copyright__ = "Copyright 2009, 2012, Brian St. Pierre"
 __license__ = "MIT"
 
 
