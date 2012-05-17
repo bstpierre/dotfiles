@@ -246,8 +246,15 @@ def dotfiles_add(*args):
         repodir = os.path.dirname(repofile)
         if not os.path.exists(repodir):
             os.makedirs(repodir)
-        os.rename(file, repofile)
-        os.symlink(repofile, file)
+
+        if not os.path.exists(repofile):
+            # This file is being newly controlled.
+            os.rename(file, repofile)
+            os.symlink(repofile, file)
+        else:
+            # This file is already under control; nothing to do.
+            pass
+
         retcode = subprocess.call(
             'git add ' + filename,
             cwd=_LOCAL_REPO_DIR,
