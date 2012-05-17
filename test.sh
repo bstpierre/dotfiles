@@ -8,7 +8,6 @@ set -x
 home1=`mktemp -d /tmp/dotfiletest.XXXXXXXXX`
 home2=`mktemp -d /tmp/dotfiletest.XXXXXXXXX`
 repo=`mktemp -d /tmp/dotfiletest.XXXXXXXXX`
-export HOME=$home1
 
 function cleanup()
 {
@@ -16,6 +15,18 @@ function cleanup()
 }
 
 trap cleanup EXIT
+
+# Configure git in fake homedir on machine 1.
+export HOME=$home1
+git config --global user.name "Dummy Name"
+git config --global user.email dummy@example.com
+
+# Configure git in fake homedir on machine2.
+export HOME=$home2
+git config --global user.name "Dummy Name"
+git config --global user.email dummy@example.com
+
+export HOME=$home1
 
 # Set up.
 dotfiles init $repo

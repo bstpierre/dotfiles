@@ -59,8 +59,10 @@ __license__ = "MIT"
 
 import optparse
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 
 # This is where we store our control info.
 _DOTFILES_DIR = os.path.join(os.environ.get('HOME', ''),
@@ -92,6 +94,7 @@ def _maybe_warn(link):
 
 
 def _make_links_to_repo(warn_on_existing_links=False):
+    the_readme = os.path.join(_LOCAL_REPO_DIR, 'README')
     dirs = ['']
     while len(dirs):
         dir = dirs.pop()
@@ -99,6 +102,10 @@ def _make_links_to_repo(warn_on_existing_links=False):
             if f == '.git':
                 continue
             path = os.path.join(_LOCAL_REPO_DIR, dir, f)
+            if path == the_readme:
+                # No need to force the dummy README file to show up in
+                # the user's $HOME/.
+                continue
             if os.path.isdir(path):
                 dirs.append(os.path.join(dir, f))
                 continue
@@ -135,12 +142,52 @@ def dotfiles_init(*args):
     if not os.path.exists(repo):
         os.makedirs(repo)
 
-    retcode = subprocess.call('git init', cwd=repo, shell=True)
-    if retcode == 0:
-        retcode = subprocess.call('git commit --allow-empty '+
-                                  '-m"New dotfiles repository"',
-                                  cwd=repo,
-                                  shell=True)
+    retcode = subprocess.call('git init --bare', cwd=repo, shell=True)
+    if retcode:
+        print 'error creating git repo'
+        return retcode
+
+    # Clone into, and create the first commit from, a temp dir.
+    clone_parent = tempfile.mkdtemp()
+    retcode = subprocess.call('git clone %s' % (repo, ),
+                              cwd=clone_parent, shell=True)
+    if retcode:
+        print 'error cloning git repo'
+        return retcode
+
+    # The clone dir really gets created as a subdirectory of the cwd.
+    clone_dir = os.path.join(clone_parent, os.path.basename(repo))
+
+    print 'Created clone in "%s"' % (clone_dir, )
+    f = open(os.path.join(clone_dir, 'README'), 'w')
+    f.write('''This is a dotfiles repository.
+
+See http://github.com/bstpierre/dotfiles for more information.\n''')
+    f.close()
+
+    retcode = subprocess.call('git add README',
+                              cwd=clone_dir,
+                              shell=True)
+    if retcode:
+        print 'error adding README to clone'
+        return retcode
+
+    retcode = subprocess.call('git commit '+
+                              '-m"New dotfiles repository"',
+                              cwd=clone_dir,
+                              shell=True)
+    if retcode:
+        print 'error commiting to clone'
+        return retcode
+
+    retcode = subprocess.call('git push origin master',
+                              cwd=clone_dir,
+                              shell=True)
+    if retcode:
+        print 'error pushing from clone to origin'
+        return retcode
+
+    shutil.rmtree(clone_parent)
 
     return retcode
 
