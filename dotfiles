@@ -62,8 +62,8 @@ dotfiles status
   staged for the next push.
 '''
 
-__version__ = "0.3"
-__date__ = "2012-05-17"
+__version__ = "0.4"
+__date__ = "2012-05-23"
 __author__ = "Brian St. Pierre (http://bstpierre.org/)"
 __copyright__ = "Copyright 2009, 2012, Brian St. Pierre"
 __license__ = "MIT"
