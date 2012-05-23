@@ -22,6 +22,9 @@ dotfiles add DOTFILE
 
   If DOTFILE is not under ~, complain and exit with error.
 
+  If DOTFILE is already a controlled file, do the equivalent of a "git
+  add".
+
   *Move* DOTFILE into ~/.dotfiles and create a symlink from the
   original file to the ~/.dotfiles version. If DOTFILE is in a
   subdir, the subdirs will be created under ~/.dotfiles. Adds
@@ -32,6 +35,10 @@ dotfiles add DOTFILE
   symlink into the REPO. If you do not want to control the entire
   directory, pick and choose the files you want to control. Mixing and
   matching is probably a bad idea.
+
+dotfiles diff
+
+  Show diffs of changed controlled files.
 
 dotfiles push COMMIT-MSG
 
@@ -48,6 +55,11 @@ dotfiles pull
 
   FIXME: Deal with existing files of the same name in a sane
   way. (See above, same problem.)
+
+dotfiles status
+
+  Lists controlled files that are changed, and/or those that have been
+  staged for the next push.
 '''
 
 __version__ = "0.3"
@@ -265,6 +277,21 @@ def dotfiles_add(*args):
             return retcode
 
 
+def dotfiles_diff(*args):
+    if len(args):
+        print __doc__
+        return 1
+
+    retcode = subprocess.call(
+        'git diff',
+        cwd=_LOCAL_REPO_DIR,
+        shell=True)
+    if retcode != 0:
+        print 'error: git diff failed'
+
+    return retcode
+
+
 def dotfiles_push(*args):
     if len(args) != 1:
         print __doc__
@@ -308,6 +335,20 @@ def dotfiles_pull(*args):
 
     _make_links_to_repo(warn_on_existing_links=False)
 
+    return retcode
+
+
+def dotfiles_status(*args):
+    if len(args):
+        print __doc__
+        return 1
+
+    retcode = subprocess.call(
+        'git status',
+        cwd=_LOCAL_REPO_DIR,
+        shell=True)
+    if retcode != 0:
+        print 'error: git status failed'
     return retcode
 
 
