@@ -144,6 +144,42 @@ def _make_links_to_repo(warn_on_existing_links=False):
                 os.symlink(path, link)
 
 
+def _fix_permissions():
+    permissions_meta = os.path.join(_LOCAL_REPO_DIR,
+                                    'dotfiles_permissions.config')
+    if not os.path.exists(permissions_meta):
+        return
+
+    for line in open(permissions_meta, 'r').readlines():
+        line = line.strip()
+        record = line.split(',')
+        if len(record) != 2:
+            print 'WARNING: invalid permission line "%s"' % (line, )
+            continue
+        file, mode = record
+
+        try:
+            mode = int(mode, 8)
+        except ValueError:
+            print 'WARNING: bad file mode "%s"' % mode
+            continue
+
+        if file[0] == '/' or '..' in file:
+            print 'WARNING: path not relative to $HOME: "%s"' % (file, )
+            continue
+
+        file_path = os.path.join(_LOCAL_REPO_DIR, file)
+        if not os.path.exists(file_path):
+            print 'WARNING: file not found: "%s"' % (file_path, )
+            continue
+
+        try:
+            os.chmod(file_path, mode)
+        except StandardError as ex:
+            print 'WARNING: chmod "%s" "0%o" failed: %s' % (
+                file, mode, ex)
+
+
 def dotfiles_init(*args):
     if len(args) != 1:
         print __doc__
@@ -334,6 +370,7 @@ def dotfiles_pull(*args):
         return retcode
 
     _make_links_to_repo(warn_on_existing_links=False)
+    _fix_permissions()
 
     return retcode
 
