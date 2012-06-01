@@ -175,7 +175,7 @@ def _fix_permissions():
 
         try:
             os.chmod(file_path, mode)
-        except StandardError as ex:
+        except StandardError, ex:
             print 'WARNING: chmod "%s" "0%o" failed: %s' % (
                 file, mode, ex)
 
