@@ -106,12 +106,16 @@ def _maybe_warn(link):
 
 
 def _make_links_to_repo(warn_on_existing_links=False):
+    dont_link = [
+        '.git',
+        'dotfiles_permissions.config'
+        ]
     the_readme = os.path.join(_LOCAL_REPO_DIR, 'README')
     dirs = ['']
     while len(dirs):
         dir = dirs.pop()
         for f in os.listdir(os.path.join(_LOCAL_REPO_DIR, dir)):
-            if f == '.git':
+            if f in dont_link:
                 continue
             path = os.path.join(_LOCAL_REPO_DIR, dir, f)
             if path == the_readme:
